@@ -227,5 +227,5 @@ fn convert_mdl_type(elem_str: &str) -> String {
 }
 
 fn main() {
-    dbg!(Input::load("/tmp/input.sdf"));
+    dbg!(Input::load("testfiles/input.sdf"));
 }
