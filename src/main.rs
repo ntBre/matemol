@@ -1,6 +1,6 @@
 use std::path::Path;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 #[allow(unused)]
 struct Atom {
     element: String,
@@ -28,7 +28,33 @@ struct Atom {
     radical_type: usize,
 }
 
-struct Input {}
+#[derive(Debug, Default)]
+#[allow(unused)]
+struct Bond {
+    a1: usize,
+    a2: usize,
+    btype: char,
+    ring_count: usize,
+    arom: bool,
+    q_arom: bool, //  potentially aromatic in a query structure
+    topo: usize,  //  see MDL file description
+    stereo: usize,
+    mdl_stereo: usize,
+}
+
+#[derive(Debug)]
+#[allow(unused)]
+struct Input {
+    mol_name: String,
+    mol_comment: String,
+    n_c_tot: usize,
+    n_o_tot: usize,
+    n_n_tot: usize,
+    n_heavy: usize,
+    heavy_bonds: usize,
+    atoms: Vec<Atom>,
+    bonds: Vec<Bond>,
+}
 
 impl Input {
     /// load an SDF file from `filename`
@@ -49,7 +75,8 @@ impl Input {
         let mut n_n_tot = 0;
         let mut n_heavy = 0;
         let mut atoms = Vec::with_capacity(n_atoms);
-        for line in lines.take(n_atoms) {
+        for _ in 0..n_atoms {
+            let line = lines.next().unwrap();
             let sp: Vec<_> = line.split_ascii_whitespace().collect();
             let elem_str = &sp[3];
             if elem_str == &"C" {
@@ -86,7 +113,49 @@ impl Input {
                 ..Default::default()
             });
         }
-        todo!()
+
+        let mut bonds = Vec::with_capacity(n_bonds);
+        for line in lines.take(n_bonds) {
+            let sp: Vec<_> = line.split_ascii_whitespace().collect();
+            let a1 = sp[0].parse::<usize>().unwrap() - 1;
+            let a2 = sp[1].parse::<usize>().unwrap() - 1;
+            bonds.push(Bond {
+                a1,
+                a2,
+                btype: match sp[2] {
+                    "1" => 'S', // single
+                    "2" => 'D', // double
+                    "3" => 'T', // triple
+                    "4" => 'A', // aromatic
+                    "5" => 'l', // single or double
+                    "6" => 's', // single or aromatic
+                    "7" => 'd', // double or aromatic
+                    "8" => 'a', // any
+                    "9" => 'a', // any in JSME;  v0.5b
+                    _ => unimplemented!(),
+                },
+                // TODO skipping aromaticity reading and topology
+                ..Default::default()
+            });
+        }
+
+        let mut heavy_bonds = 0;
+        for bond in &bonds {
+            if atoms[bond.a1].heavy && atoms[bond.a2].heavy {
+                heavy_bonds += 1;
+            }
+        }
+        Self {
+            mol_name: mol_name.into(),
+            mol_comment: mol_comment.into(),
+            n_c_tot,
+            n_o_tot,
+            n_n_tot,
+            n_heavy,
+            heavy_bonds,
+            atoms,
+            bonds,
+        }
     }
 }
 
@@ -158,5 +227,5 @@ fn convert_mdl_type(elem_str: &str) -> String {
 }
 
 fn main() {
-    Input::load("/tmp/input.sdf");
+    dbg!(Input::load("/tmp/input.sdf"));
 }
